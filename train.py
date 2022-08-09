@@ -63,7 +63,7 @@ def train(opt, show_number = 2, amp=False):
         opt.input_channel = 3
     model = Model(opt)
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
-          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
+          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.Backbone,
           opt.SequenceModeling, opt.Prediction)
 
     if opt.saved_model != '':
