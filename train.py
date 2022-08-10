@@ -29,7 +29,7 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
-def train(opt, show_number = 2, amp=False):
+def train(opt, model=None, show_number = 2, amp=False):
     """ dataset preparation """
     if not opt.data_filtering_off:
         print('Filtering the images containing characters which are not in opt.character')
@@ -61,7 +61,9 @@ def train(opt, show_number = 2, amp=False):
 
     if opt.rgb:
         opt.input_channel = 3
-    model = Model(opt)
+        
+    model = model if model else Model(opt)
+    
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.Backbone,
           opt.SequenceModeling, opt.Prediction)
