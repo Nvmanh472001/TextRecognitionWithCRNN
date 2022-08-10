@@ -77,6 +77,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
         for key, value in pretrained_dict.items():
             new_key = key[7:]
             new_state_dict[new_key] = value
+        model.load_state_dict(new_state_dict)
             
         if opt.new_prediction:
             model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
@@ -84,9 +85,9 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
         model = torch.nn.DataParallel(model).to(device) 
         print(f'loading pretrained model from {opt.saved_model}')
         if opt.FT:
-            model.load_state_dict(new_state_dict, strict=False)
+            model.load_state_dict(pretrained_dict, strict=False)
         else:
-            model.load_state_dict(new_state_dict)
+            model.load_state_dict(pretrained_dict)
         if opt.new_prediction:
             model.module.Prediction = nn.Linear(model.module.SequenceModeling_output, opt.num_class)  
             for name, param in model.module.Prediction.named_parameters():
@@ -117,7 +118,6 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
         qat_ops = QuantizationOps(model=model, config=opt)
         model = qat_ops.quantized_model
     
-    model.train()
     print("Model:")
     print(model)
     count_parameters(model)
