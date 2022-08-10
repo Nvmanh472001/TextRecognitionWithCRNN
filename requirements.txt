@@ -1,4 +1,4 @@
-torch==1.8.1
+torch
 torchvision>=0.5
 opencv-python-headless<=4.5.4.60
 scipy
