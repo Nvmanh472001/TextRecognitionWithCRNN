@@ -25,21 +25,15 @@ class QuantizationVGG(nn.Module):
     
 
 class QuantizationOps():
-    def __init__(self, model, config, **kwargs):
+    def __init__(self, model, **kwargs):
         self.model = model
-        self.config = config['quantization']
         
-        if self.config['fuse_layers'] is None:
-            fuse_layers = [['0', '1'], ['3', '4'], ['6', '7'], \
+        fuse_layers = [['0', '1'], ['3', '4'], ['6', '7'], \
                         ['8', '9'], ['18', '19'], \
                         ['11', '12', '13'], ['14', '15', '16']]
-        else:
-            fuse_layers = self.config['fuse_layers']
-        
-        self.backend = self.config['backend'] if self.config['backend'] \
-                                                else 'fbgemm'
-        
         self.fuse_layers = fuse_layers
+        self.backend = 'fbgemm'
+        
         fused_model = self.fused_layers()
         
         self.quantized_model = QuantizationVGG(model_fp32=fused_model)

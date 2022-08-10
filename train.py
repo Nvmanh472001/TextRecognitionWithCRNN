@@ -113,12 +113,12 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 continue
         model = torch.nn.DataParallel(model).to(device)
     
-    model.train()
     """ Quantize Aware Training Model """
     if use_qat:
         qat_ops = QuantizationOps(model=model, config=opt)
         model = qat_ops.quantized_model
     
+    model.train()
     print("Model:")
     print(model)
     count_parameters(model)
