@@ -65,8 +65,7 @@ def train(opt, model=None, show_number = 2, amp=False):
     model = model if model else Model(opt)
     
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
-          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.Backbone,
-          opt.SequenceModeling, opt.Prediction)
+          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Backbone, opt.SequenceModeling, opt.Prediction)
 
     if opt.saved_model != '':
         pretrained_dict = torch.load(opt.saved_model)
