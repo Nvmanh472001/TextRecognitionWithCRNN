@@ -127,11 +127,9 @@ def hierarchical_dataset(root, opt, select_data='/'):
                 if selected_d in dirpath:
                     select_flag = True
                     break
-                
-            print(select_flag)
 
             if select_flag:
-                dataset = (dirpath, opt)
+                dataset = OCRDataset(dirpath, opt)
                 sub_dataset_log = f'sub-directory:\t/{os.path.relpath(dirpath, root)}\t num samples: {len(dataset)}'
                 print(sub_dataset_log)
                 dataset_log += f'{sub_dataset_log}\n'
