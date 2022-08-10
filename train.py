@@ -10,11 +10,13 @@ import torch.optim as optim
 import torch.utils.data
 from torch.cuda.amp import autocast, GradScaler
 import numpy as np
+from collections import OrderedDict
 
 from utils import CTCLabelConverter, AttnLabelConverter, Averager
 from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from model import Model
 from test import validation
+from modules.quantization import QuantizationOps
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def count_parameters(model):
@@ -29,7 +31,7 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
-def train(opt, model=None, show_number = 2, amp=False):
+def train(opt, pretrained=True, use_qat=False, show_number = 2, amp=False):
     """ dataset preparation """
     if not opt.data_filtering_off:
         print('Filtering the images containing characters which are not in opt.character')
@@ -62,13 +64,20 @@ def train(opt, model=None, show_number = 2, amp=False):
     if opt.rgb:
         opt.input_channel = 3
         
-    model = model if model else Model(opt)
+    model = Model(opt)
     
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Backbone, opt.SequenceModeling, opt.Prediction)
 
-    if opt.saved_model != '':
+    if pretrained:
         pretrained_dict = torch.load(opt.saved_model)
+        new_state_dict = OrderedDict()
+
+        for key, value in pretrained_dict.items():
+            new_key = key[7:]
+            new_state_dict[new_key] = value
+        model.load_state_dict(new_state_dict)
+            
         if opt.new_prediction:
             model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
         
@@ -103,7 +112,12 @@ def train(opt, model=None, show_number = 2, amp=False):
                 continue
         model = torch.nn.DataParallel(model).to(device)
     
-    model.train() 
+    model.train()
+    """ Quantize Aware Training Model """
+    
+    qat_ops = QuantizationOps(model=model, config=opt)
+    model = qat_ops.quantized_model
+    
     print("Model:")
     print(model)
     count_parameters(model)
