@@ -17,6 +17,7 @@ from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from model import Model
 from test import validation
 from modules.quantization import QuantizationOps
+from tools import save_torchscript_model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def count_parameters(model):
@@ -288,10 +289,17 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 t1=time.time()
         # save model per 1e+4 iter.
         if (i + 1) % 1e+4 == 0:
-            torch.save(
-                model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i+1}.pth')
+            if use_qat:
+                qat_ops.convert2model(model)
+                save_torchscript_model(model=model, \
+                    model_dir=f'./saved_models/{opt.experiment_name}', \
+                    model_filename=f'iter_{i+1}.pth')
+            else:
+                torch.save(
+                    model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i+1}.pth')
 
         if i == opt.num_iter:
             print('end the training')
             sys.exit()
         i += 1
+        

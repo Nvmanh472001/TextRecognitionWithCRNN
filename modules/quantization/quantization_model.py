@@ -79,6 +79,6 @@ class QuantizationOps():
         # Prepare quantized model before training
         torch.quantization.prepare_qat(self.quantized_model, inplace=True)
         
-    def convert2model(self):
+    def convert2model(self, model):
         # convert quantized model after training
-        torch.quantization.convert(self.quantized_model, inplace=True)
+        torch.quantization.convert(model, inplace=True)
