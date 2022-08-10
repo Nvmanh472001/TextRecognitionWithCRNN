@@ -31,7 +31,7 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
-def train(opt, pretrained=True, use_qat=False, show_number = 2, amp=False):
+def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
     """ dataset preparation """
     if not opt.data_filtering_off:
         print('Filtering the images containing characters which are not in opt.character')
@@ -114,9 +114,9 @@ def train(opt, pretrained=True, use_qat=False, show_number = 2, amp=False):
     
     model.train()
     """ Quantize Aware Training Model """
-    
-    qat_ops = QuantizationOps(model=model, config=opt)
-    model = qat_ops.quantized_model
+    if use_qat:
+        qat_ops = QuantizationOps(model=model, config=opt)
+        model = qat_ops.quantized_model
     
     print("Model:")
     print(model)
