@@ -76,3 +76,4 @@ class QuantizationOps():
     def convert2model(self, model):
         # convert quantized model after training
         torch.quantization.convert(model, inplace=True)
+        return model

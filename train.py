@@ -71,7 +71,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Backbone, opt.SequenceModeling, opt.Prediction)
 
     if pretrained:
-        pretrained_dict = torch.load(opt.saved_model)
+        pretrained_dict = torch.load(opt.saved_model, map_location=device)
         new_state_dict = OrderedDict()
 
         for key, value in pretrained_dict.items():
@@ -82,12 +82,13 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
         if opt.new_prediction:
             model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
         
-        model = torch.nn.DataParallel(model).to(device) 
+        
         print(f'loading pretrained model from {opt.saved_model}')
+        
         if opt.FT:
-            model.load_state_dict(pretrained_dict, strict=False)
+            model.load_state_dict(new_state_dict, strict=False)
         else:
-            model.load_state_dict(pretrained_dict)
+            model.load_state_dict(new_state_dict)
         if opt.new_prediction:
             model.module.Prediction = nn.Linear(model.module.SequenceModeling_output, opt.num_class)  
             for name, param in model.module.Prediction.named_parameters():
@@ -96,6 +97,12 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 elif 'weight' in name:
                     init.kaiming_normal_(param)
             model = model.to(device) 
+        
+        if use_qat:
+            qat_ops = QuantizationOps(model=model.FeatureExtraction)
+            model.FeatureExtraction = qat_ops.quantized_model
+        model = torch.nn.DataParallel(model).to(device)
+         
     else:
         # weight initialization
         for name, param in model.named_parameters():
@@ -114,9 +121,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
         model = torch.nn.DataParallel(model).to(device)
     
     """ Quantize Aware Training Model """
-    if use_qat:
-        qat_ops = QuantizationOps(model=model, config=opt)
-        model = qat_ops.quantized_model
+    
     
     print("Model:")
     print(model)
@@ -289,7 +294,8 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
         # save model per 1e+4 iter.
         if (i + 1) % 1e+4 == 0:
             if use_qat:
-                qat_ops.convert2model(model)
+                model = model.to('cpu')
+                model.FeatureExtraction = qat_ops.convert2model(model.FeatureExtraction)
                 save_torchscript_model(model=model, \
                     model_dir=f'./saved_models/{opt.experiment_name}', \
                     model_filename=f'iter_{i+1}.pth')
