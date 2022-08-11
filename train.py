@@ -298,7 +298,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 model.FeatureExtraction = qat_ops.convert2model(model.FeatureExtraction)
                 save_torchscript_model(model=model, \
                     model_dir=f'./saved_models/{opt.experiment_name}', \
-                    model_filename=f'iter_{i+1}.pth')
+                    model_filename=f'iter_{i+1}.pt')
             else:
                 torch.save(
                     model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i+1}.pth')
