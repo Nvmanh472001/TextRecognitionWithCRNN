@@ -297,7 +297,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 model = model.to('cpu')
                 model.FeatureExtraction = qat_ops.convert2model(model.FeatureExtraction)
                 save_torchscript_model(model=model, \
-                    model_dir=f'./saved_models/{opt.experiment_name}', \
+                    model_dir=f'./saved_models/{opt.experiment_name}/quantize', \
                     model_filename=f'iter_{i+1}.pt')
             else:
                 torch.save(
