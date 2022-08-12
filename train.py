@@ -10,14 +10,11 @@ import torch.optim as optim
 import torch.utils.data
 from torch.cuda.amp import autocast, GradScaler
 import numpy as np
-from collections import OrderedDict
 
 from utils import CTCLabelConverter, AttnLabelConverter, Averager
 from dataset import hierarchical_dataset, AlignCollate, Batch_Balanced_Dataset
 from model import Model
 from test import validation
-from modules.quantization import QuantizationOps
-from tools import save_torchscript_model
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def count_parameters(model):
@@ -32,7 +29,7 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
-def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
+def train(opt, model=None, show_number = 2, amp=False):
     """ dataset preparation """
     if not opt.data_filtering_off:
         print('Filtering the images containing characters which are not in opt.character')
@@ -64,31 +61,27 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
 
     if opt.rgb:
         opt.input_channel = 3
-        
-    model = Model(opt)
     
+    if model:
+        model=model
+    else:
+        model = Model(opt)
+        
     print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
-          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Backbone, opt.SequenceModeling, opt.Prediction)
+          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
+          opt.SequenceModeling, opt.Prediction)
 
-    if pretrained:
-        pretrained_dict = torch.load(opt.saved_model, map_location=device)
-        new_state_dict = OrderedDict()
-
-        for key, value in pretrained_dict.items():
-            new_key = key[7:]
-            new_state_dict[new_key] = value
-        model.load_state_dict(new_state_dict)
-            
+    if opt.saved_model != '':
+        pretrained_dict = torch.load(opt.saved_model)
         if opt.new_prediction:
             model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
         
-        
+        model = torch.nn.DataParallel(model).to(device) 
         print(f'loading pretrained model from {opt.saved_model}')
-        
         if opt.FT:
-            model.load_state_dict(new_state_dict, strict=False)
+            model.load_state_dict(pretrained_dict, strict=False)
         else:
-            model.load_state_dict(new_state_dict)
+            model.load_state_dict(pretrained_dict)
         if opt.new_prediction:
             model.module.Prediction = nn.Linear(model.module.SequenceModeling_output, opt.num_class)  
             for name, param in model.module.Prediction.named_parameters():
@@ -97,12 +90,6 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 elif 'weight' in name:
                     init.kaiming_normal_(param)
             model = model.to(device) 
-        
-        if use_qat:
-            qat_ops = QuantizationOps(model=model.FeatureExtraction)
-            model.FeatureExtraction = qat_ops.quantized_model
-        model = torch.nn.DataParallel(model).to(device)
-         
     else:
         # weight initialization
         for name, param in model.named_parameters():
@@ -120,9 +107,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 continue
         model = torch.nn.DataParallel(model).to(device)
     
-    """ Quantize Aware Training Model """
-    
-    
+    model.train() 
     print("Model:")
     print(model)
     count_parameters(model)
@@ -204,14 +189,14 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 batch_size = image.size(0)
 
                 if 'CTC' in opt.Prediction:
-                    preds = model(image).log_softmax(2)
+                    preds = model(image, text).log_softmax(2)
                     preds_size = torch.IntTensor([preds.size(1)] * batch_size)
                     preds = preds.permute(1, 0, 2)
                     torch.backends.cudnn.enabled = False
                     cost = criterion(preds, text.to(device), preds_size.to(device), length.to(device))
                     torch.backends.cudnn.enabled = True
                 else:
-                    preds = model(image)  # align with Attention.forward
+                    preds = model(image, text[:, :-1])  # align with Attention.forward
                     target = text[:, 1:]  # without [GO] Symbol
                     cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
             scaler.scale(cost).backward()
@@ -225,14 +210,14 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
             text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
             batch_size = image.size(0)
             if 'CTC' in opt.Prediction:
-                preds = model(image).log_softmax(2)
+                preds = model(image, text).log_softmax(2)
                 preds_size = torch.IntTensor([preds.size(1)] * batch_size)
                 preds = preds.permute(1, 0, 2)
                 torch.backends.cudnn.enabled = False
                 cost = criterion(preds, text.to(device), preds_size.to(device), length.to(device))
                 torch.backends.cudnn.enabled = True
             else:
-                preds = model(image)  # align with Attention.forward
+                preds = model(image, text[:, :-1])  # align with Attention.forward
                 target = text[:, 1:]  # without [GO] Symbol
                 cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
             cost.backward()
@@ -262,18 +247,10 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 # keep best accuracy model (on valid dataset)
                 if current_accuracy > best_accuracy:
                     best_accuracy = current_accuracy
-                    
-                    if use_qat:
-                        pass
-                    else:
-                        torch.save(model.state_dict(), f'./saved_models/{opt.experiment_name}/best_accuracy.pth')
-                        
+                    torch.save(model.state_dict(), f'./saved_models/{opt.experiment_name}/best_accuracy.pth')
                 if current_norm_ED > best_norm_ED:
-                    if use_qat:
-                        pass
-                    else:
-                        best_norm_ED = current_norm_ED
-                        torch.save(model.state_dict(), f'./saved_models/{opt.experiment_name}/best_norm_ED.pth')
+                    best_norm_ED = current_norm_ED
+                    torch.save(model.state_dict(), f'./saved_models/{opt.experiment_name}/best_norm_ED.pth')
                 best_model_log = f'{"Best_accuracy":17s}: {best_accuracy:0.3f}, {"Best_norm_ED":17s}: {best_norm_ED:0.4f}'
 
                 loss_model_log = f'{loss_log}\n{current_model_log}\n{best_model_log}'
@@ -301,21 +278,10 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 t1=time.time()
         # save model per 1e+4 iter.
         if (i + 1) % 1e+4 == 0:
-            if use_qat:
-                pass
-            else:
-                torch.save(
-                    model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i+1}.pth')
+            torch.save(
+                model.state_dict(), f'./saved_models/{opt.experiment_name}/iter_{i+1}.pth')
 
         if i == opt.num_iter:
-            if use_qat:
-                print('Finsih Quantize Aware Training')
-                model = model.to('cpu')
-                model.module.FeatureExtraction = qat_ops.convert2model(model.module.FeatureExtraction)
-                save_torchscript_model(model=model, \
-                    model_dir=f'./saved_models/{opt.experiment_name}/quantize', \
-                    model_filename=f'qat_easyocr.pt')
-            print('Finish Training')
+            print('end the training')
             sys.exit()
         i += 1
-        
