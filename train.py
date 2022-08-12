@@ -204,14 +204,14 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
                 batch_size = image.size(0)
 
                 if 'CTC' in opt.Prediction:
-                    preds = model(image, text).log_softmax(2)
+                    preds = model(image).log_softmax(2)
                     preds_size = torch.IntTensor([preds.size(1)] * batch_size)
                     preds = preds.permute(1, 0, 2)
                     torch.backends.cudnn.enabled = False
                     cost = criterion(preds, text.to(device), preds_size.to(device), length.to(device))
                     torch.backends.cudnn.enabled = True
                 else:
-                    preds = model(image, text[:, :-1])  # align with Attention.forward
+                    preds = model(image)  # align with Attention.forward
                     target = text[:, 1:]  # without [GO] Symbol
                     cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
             scaler.scale(cost).backward()
@@ -225,14 +225,14 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
             text, length = converter.encode(labels, batch_max_length=opt.batch_max_length)
             batch_size = image.size(0)
             if 'CTC' in opt.Prediction:
-                preds = model(image, text).log_softmax(2)
+                preds = model(image).log_softmax(2)
                 preds_size = torch.IntTensor([preds.size(1)] * batch_size)
                 preds = preds.permute(1, 0, 2)
                 torch.backends.cudnn.enabled = False
                 cost = criterion(preds, text.to(device), preds_size.to(device), length.to(device))
                 torch.backends.cudnn.enabled = True
             else:
-                preds = model(image, text[:, :-1])  # align with Attention.forward
+                preds = model(image)  # align with Attention.forward
                 target = text[:, 1:]  # without [GO] Symbol
                 cost = criterion(preds.view(-1, preds.shape[-1]), target.contiguous().view(-1))
             cost.backward()
@@ -311,7 +311,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
             if use_qat:
                 print('Finsih Quantize Aware Training')
                 model = model.to('cpu')
-                model.module.FeatureExtraction = qat_ops.convert2model(model.FeatureExtraction)
+                model.module.FeatureExtraction = qat_ops.convert2model(model.module.FeatureExtraction)
                 save_torchscript_model(model=model, \
                     model_dir=f'./saved_models/{opt.experiment_name}/quantize', \
                     model_filename=f'qat_easyocr.pt')
