@@ -261,11 +261,11 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
 
                 # keep best accuracy model (on valid dataset)
                 if current_accuracy > best_accuracy:
+                    best_accuracy = current_accuracy
+                    
                     if use_qat:
                         pass
-                    
                     else:
-                        best_accuracy = current_accuracy
                         torch.save(model.state_dict(), f'./saved_models/{opt.experiment_name}/best_accuracy.pth')
                         
                 if current_norm_ED > best_norm_ED:
@@ -311,7 +311,7 @@ def train(opt, pretrained=True, use_qat=True, show_number = 2, amp=False):
             if use_qat:
                 print('Finsih Quantize Aware Training')
                 model = model.to('cpu')
-                model.FeatureExtraction = qat_ops.convert2model(model.FeatureExtraction)
+                model.module.FeatureExtraction = qat_ops.convert2model(model.FeatureExtraction)
                 save_torchscript_model(model=model, \
                     model_dir=f'./saved_models/{opt.experiment_name}/quantize', \
                     model_filename=f'qat_easyocr.pt')
