@@ -62,8 +62,10 @@ def train(opt, model=None, show_number = 2, amp=False):
     if opt.rgb:
         opt.input_channel = 3
     
+    has_model=False
     if model:
         model=model
+        has_model=True
     else:
         model = Model(opt)
         
@@ -71,41 +73,44 @@ def train(opt, model=None, show_number = 2, amp=False):
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling, opt.Prediction)
 
-    if opt.saved_model != '':
-        pretrained_dict = torch.load(opt.saved_model)
-        if opt.new_prediction:
-            model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
-        
-        model = torch.nn.DataParallel(model).to(device) 
-        print(f'loading pretrained model from {opt.saved_model}')
-        if opt.FT:
-            model.load_state_dict(pretrained_dict, strict=False)
-        else:
-            model.load_state_dict(pretrained_dict)
-        if opt.new_prediction:
-            model.module.Prediction = nn.Linear(model.module.SequenceModeling_output, opt.num_class)  
-            for name, param in model.module.Prediction.named_parameters():
-                if 'bias' in name:
-                    init.constant_(param, 0.0)
-                elif 'weight' in name:
-                    init.kaiming_normal_(param)
-            model = model.to(device) 
+    if has_model:
+        pass
     else:
-        # weight initialization
-        for name, param in model.named_parameters():
-            if 'localization_fc2' in name:
-                print(f'Skip {name} as it is already initialized')
-                continue
-            try:
-                if 'bias' in name:
-                    init.constant_(param, 0.0)
-                elif 'weight' in name:
-                    init.kaiming_normal_(param)
-            except Exception as e:  # for batchnorm.
-                if 'weight' in name:
-                    param.data.fill_(1)
-                continue
-        model = torch.nn.DataParallel(model).to(device)
+        if opt.saved_model != '' and model is None:
+            pretrained_dict = torch.load(opt.saved_model)
+            if opt.new_prediction:
+                model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
+            
+            model = torch.nn.DataParallel(model).to(device) 
+            print(f'loading pretrained model from {opt.saved_model}')
+            if opt.FT:
+                model.load_state_dict(pretrained_dict, strict=False)
+            else:
+                model.load_state_dict(pretrained_dict)
+            if opt.new_prediction:
+                model.module.Prediction = nn.Linear(model.module.SequenceModeling_output, opt.num_class)  
+                for name, param in model.module.Prediction.named_parameters():
+                    if 'bias' in name:
+                        init.constant_(param, 0.0)
+                    elif 'weight' in name:
+                        init.kaiming_normal_(param)
+                model = model.to(device) 
+        else:
+            # weight initialization
+            for name, param in model.named_parameters():
+                if 'localization_fc2' in name:
+                    print(f'Skip {name} as it is already initialized')
+                    continue
+                try:
+                    if 'bias' in name:
+                        init.constant_(param, 0.0)
+                    elif 'weight' in name:
+                        init.kaiming_normal_(param)
+                except Exception as e:  # for batchnorm.
+                    if 'weight' in name:
+                        param.data.fill_(1)
+                    continue
+            model = torch.nn.DataParallel(model).to(device)
     
     model.train() 
     print("Model:")
