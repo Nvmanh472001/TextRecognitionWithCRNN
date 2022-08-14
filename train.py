@@ -73,10 +73,8 @@ def train(opt, model=None, show_number = 2, amp=False):
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling, opt.Prediction)
 
-    if has_model:
-        pass
-    else:
-        if opt.saved_model != '' and model is None:
+    if not has_model:
+        if opt.saved_model != '':
             pretrained_dict = torch.load(opt.saved_model)
             if opt.new_prediction:
                 model.Prediction = nn.Linear(model.SequenceModeling_output, len(pretrained_dict['module.Prediction.weight']))  
