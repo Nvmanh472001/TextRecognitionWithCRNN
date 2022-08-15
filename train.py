@@ -29,7 +29,7 @@ def count_parameters(model):
     print(f"Total Trainable Params: {total_params}")
     return total_params
 
-def train(opt, model=None, show_number = 2, amp=False):
+def train(opt, pretrained_model=None, show_number = 2, amp=False):
     """ dataset preparation """
     if not opt.data_filtering_off:
         print('Filtering the images containing characters which are not in opt.character')
@@ -62,10 +62,10 @@ def train(opt, model=None, show_number = 2, amp=False):
     if opt.rgb:
         opt.input_channel = 3
     
-    has_model=False
-    if model:
-        model=model
-        has_model=True
+    weight_loaded=False
+    if pretrained_model:
+        model=pretrained_model
+        weight_loaded=True
     else:
         model = Model(opt)
         
@@ -73,7 +73,7 @@ def train(opt, model=None, show_number = 2, amp=False):
           opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
           opt.SequenceModeling, opt.Prediction)
 
-    if not has_model:
+    if not weight_loaded:
         if opt.saved_model != '':
             pretrained_dict = torch.load(opt.saved_model)
             if opt.new_prediction:
