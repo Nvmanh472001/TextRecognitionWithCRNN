@@ -10,7 +10,7 @@ batch_size: 32 #32
 num_iter: 300000
 valInterval: 20000
 saved_model: './weights/english.pth' #'saved_models/en_filtered/iter_300000.pth'
-FT: False
+FT: True
 optim: False # default is Adadelta
 lr: 1.
 beta1: 0.9

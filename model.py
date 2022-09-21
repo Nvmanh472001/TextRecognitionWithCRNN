@@ -25,7 +25,7 @@ class Model(nn.Module):
             self.FeatureExtraction = RCNN_FeatureExtractor(opt.input_channel, opt.output_channel)
         elif opt.FeatureExtraction == 'ResNet':
             self.FeatureExtraction = ResNet_FeatureExtractor(opt.input_channel, opt.output_channel)
-        elif opt.FeatureExtraction == "MobileNet":
+        elif opt.FeatureExtraction == 'MobileNet':
             self.FeatureExtraction = MobileNetV3(opt.input_channel)
         else:
             raise Exception('No FeatureExtraction module specified')
@@ -43,14 +43,9 @@ class Model(nn.Module):
             self.SequenceModeling_output = self.FeatureExtraction_output
 
         """ Prediction """
-        if opt.Prediction == 'CTC':
-            self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
-        elif opt.Prediction == 'Attn':
-            self.Prediction = Attention(self.SequenceModeling_output, opt.hidden_size, opt.num_class)
-        else:
-            raise Exception('Prediction is neither CTC or Attn')
+        self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
 
-    def forward(self, input, text, is_train=True):
+    def forward(self, input, is_train=True):
         """ Transformation stage """
         if not self.stages['Trans'] == "None":
             input = self.Transformation(input)
@@ -67,9 +62,6 @@ class Model(nn.Module):
             contextual_feature = visual_feature  # for convenience. this is NOT contextually modeled by BiLSTM
 
         """ Prediction stage """
-        if self.stages['Pred'] == 'CTC':
-            prediction = self.Prediction(contextual_feature.contiguous())
-        else:
-            prediction = self.Prediction(contextual_feature.contiguous(), text, is_train, batch_max_length=self.opt.batch_max_length)
+        prediction = self.Prediction(contextual_feature.contiguous())
 
         return prediction
