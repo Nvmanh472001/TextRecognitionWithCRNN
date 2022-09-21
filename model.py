@@ -34,10 +34,8 @@ class Model(nn.Module):
 
         """ Sequence modeling"""
         if opt.SequenceModeling == 'BiLSTM':
-            self.SequenceModeling = nn.Sequential(
-                BidirectionalLSTM(self.FeatureExtraction_output, opt.hidden_size, opt.hidden_size),
-                BidirectionalLSTM(opt.hidden_size, opt.hidden_size, opt.hidden_size))
-            self.SequenceModeling_output = opt.hidden_size
+            self.SequenceModeling = BidirectionalLSTM(self.FeatureExtraction_output, opt.hidden_size, opt.hidden_size)
+            self.SequenceModeling_output = opt.hidden_size*2
         else:
             print('No SequenceModeling module specified')
             self.SequenceModeling_output = self.FeatureExtraction_output
