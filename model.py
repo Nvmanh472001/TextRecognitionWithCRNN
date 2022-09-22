@@ -43,7 +43,7 @@ class Model(nn.Module):
         """ Prediction """
         self.Prediction = nn.Linear(self.SequenceModeling_output, opt.num_class)
 
-    def forward(self, input, is_train=True):
+    def forward(self, input):
         """ Transformation stage """
         if not self.stages['Trans'] == "None":
             input = self.Transformation(input)
